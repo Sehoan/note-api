@@ -1,6 +1,9 @@
 const express = require('express');
+const logger = require('./middleware/logger');
 const app = express();
+
 app.use(express.json());
+app.use(logger);
 
 let notes = [
     {
@@ -48,12 +51,49 @@ app.delete('/api/notes/:id', (request, response) => {
     response.status(204);
 });
 
+const generateId = () => {
+    const maxId = notes.length > 0
+        ? Math.max(...notes.map(note => note.id))
+        : 0;
+    return maxId + 1;
+}
+
 app.post('/api/notes', (request, response) => {
-    const note = request.body;
-    console.log(note);
-    console.log(request.headers);
-    response.json(note);
+    const body = request.body;
+
+    if (!body.content) {
+        // calling return to stop executing the code after this if statement
+        return response.status(400).json({
+            error: 'content missing'
+        });
+    }
+
+    const note = {
+        id: generateId(),
+        content: body.content,
+        date: new Date(),
+        /*
+         *setting default value for important when the request.body doesn't
+         *have important (undefined)
+         */
+        important: body.important || false,
+    };
+
+    notes = notes.concat(note);
+    response.json(body);
 })
+
+/*
+ * if the HTTP request from the client/browser is not handled by any routes 
+ * defined above, this middleware will be used
+ */
+
+const unknownEndpoint = (request, response) => {
+    response.status(404).send({
+        error: 'unknown endpoint'
+    })
+};
+app.use(unknownEndpoint);
 
 const PORT = 3001;
 app.listen(PORT, () => {
